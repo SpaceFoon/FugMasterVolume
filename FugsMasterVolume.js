@@ -141,14 +141,6 @@
  * @max 100
  * @default 25
  *
- * @parent Option Menu Settings
- * @text Volume Step Size
- * @desc The increment/decrement step size for volume adjustments with arrow keys
- * @type number
- * @min 1
- * @max 20
- * @default 5
- *
  * @param Stock Volume Names
  * @text Stock Volume Slider Names
  * @desc Customize the names of stock volume sliders
@@ -217,6 +209,8 @@
       optionPosition: optionPosition,
       sliderName: sliderName,
       hideStockVolume: hideStockVolume,
+      volumeStepSize: volumeStepSize,
+      clickVolumeStepSize: clickVolumeStepSize,
       bgmVolumeName: bgmVolumeName,
       bgsVolumeName: bgsVolumeName,
       seVolumeName: seVolumeName,
@@ -360,20 +354,19 @@
       const symbol = this.commandSymbol(this.index());
       if (symbol === "userMasterVolume") {
         const currentValue = ConfigManager.userMasterVolume;
-        const presets = (() => {
-          const step = clickVolumeStepSize;
-          const maxVolume = 200;
-          const presetValues = [];
-          for (let i = 0; i <= maxVolume; i += step) {
-            presetValues.push(i);
-          }
-          return presetValues;
-        })();
-        presets();
+
+        // Generate presets based on click step size
+        const presets = [];
+        const step = clickVolumeStepSize;
+        const maxVolume = 200;
+        for (let i = 0; i <= maxVolume; i += step) {
+          presets.push(i);
+        }
+
         const currentIndex = presets.indexOf(currentValue);
         const nextIndex = (currentIndex + 1) % presets.length;
 
-        ConfigManager.userMasterVolume = presetValues[nextIndex];
+        ConfigManager.userMasterVolume = presets[nextIndex];
         this.redrawCurrentItem();
         SoundManager.playCursor();
         return;
