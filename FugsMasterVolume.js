@@ -86,7 +86,7 @@
  * @param User Master Volume
  * @parent Show User Volume
  * @text Default User Master Volume
- * @desc Default user master volume when first enabled (0-100%)
+ * @desc Default user master volume when first enabled (0-200%)
  * @type number
  * @min 0
  * @max 200
@@ -123,6 +123,7 @@
   const defaultUserVolume = Number(params["User Master Volume"]) || 90;
   const showUserVolume = params["Show User Volume"] === "true";
   const optionPosition = String(params["Option Position"]) || "TopVolume";
+  const sliderName = String(params["Slider Name"]) || "Master Volume";
 
   // Check for YEP_OptionsCore compatibility
   const hasYEPOptions = typeof Yanfly !== "undefined" && Yanfly.Options;
@@ -145,6 +146,7 @@
       useConfigManager: useConfigManager,
       hasYEPOptions: hasYEPOptions,
       optionPosition: optionPosition,
+      sliderName: sliderName,
     });
     debugLog("WebAudio master volume:", WebAudio._masterVolume);
     debugLog(
@@ -180,7 +182,16 @@
         )}) × User(${userVolume.toFixed(2)}) = ${finalVolume.toFixed(2)}`
       );
 
-      WebAudio.setMasterVolume(finalVolume);
+      try {
+        if (WebAudio && WebAudio.setMasterVolume) {
+          WebAudio.setMasterVolume(finalVolume);
+          debugLog("Combined volume applied successfully");
+        } else {
+          debugLog("WebAudio not ready for combined volume");
+        }
+      } catch (error) {
+        debugLog("Error applying combined volume:", error);
+      }
     };
 
     // Override ConfigManager methods to handle persistence
@@ -209,11 +220,6 @@
       }
       return _ConfigManager_readValue.call(this, config, name, defaultValue);
     };
-  } else {
-    // Apply developer volume only
-    const devVolume = devMasterVolume / 100;
-    debugLog(`Applying developer volume only: ${devVolume.toFixed(2)}`);
-    WebAudio.setMasterVolume(devVolume);
   }
 
   // Options menu integration
@@ -224,23 +230,23 @@
     Window_Options.prototype.makeCommandList = function () {
       switch (optionPosition) {
         case "TopAll":
-          this.addCommand("Master Volume", "userMasterVolume");
+          this.addCommand(sliderName, "userMasterVolume");
           this.addGeneralOptions();
           this.addVolumeOptions();
           break;
         case "TopVolume":
           this.addGeneralOptions();
-          this.addCommand("Master Volume", "userMasterVolume");
+          this.addCommand(sliderName, "userMasterVolume");
           this.addVolumeOptions();
           break;
         case "BottomVolume":
           this.addGeneralOptions();
           this.addVolumeOptions();
-          this.addCommand("Master Volume", "userMasterVolume");
+          this.addCommand(sliderName, "userMasterVolume");
           break;
         default:
           _Window_Options_makeCommandList.call(this);
-          this.addCommand("Master Volume", "userMasterVolume");
+          this.addCommand(sliderName, "userMasterVolume");
       }
     };
 
@@ -305,16 +311,26 @@
   }
 
   // Apply initial volume settings
-  if (useConfigManager) {
-    debugLog("ConfigManager will handle initial volume application");
-  } else {
-    // Apply developer volume with slight delay to ensure WebAudio is ready
-    setTimeout(() => {
-      const devVolume = devMasterVolume / 100;
-      WebAudio.setMasterVolume(devVolume);
-      debugLog(`Initial developer volume applied: ${devVolume.toFixed(2)}`);
-    }, 100);
+  function applyVolumeWhenReady() {
+    try {
+      if (WebAudio && WebAudio.setMasterVolume) {
+        if (useConfigManager) {
+          // Apply combined volume if using ConfigManager
+          ConfigManager.applyMasterVolume();
+        } else {
+          // Apply only dev volume if not using ConfigManager
+          const devVolume = devMasterVolume / 100;
+          WebAudio.setMasterVolume(devVolume);
+          debugLog(`Dev volume applied: ${devVolume.toFixed(2)}`);
+        }
+        debugLog("Plugin initialization complete");
+        return;
+      }
+    } catch (error) {
+      debugLog("WebAudio not ready yet, retrying...");
+    }
+    setTimeout(applyVolumeWhenReady, 100);
   }
 
-  debugLog("Plugin initialization complete");
+  applyVolumeWhenReady();
 })();
