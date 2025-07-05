@@ -12,7 +12,7 @@
  *
  * This plugin fixes the annoying problem of RPG Maker MV games starting at a
  * volume that blows out your ear drums. Developers can set a default volume
- * and users get a master volume control.
+ * and users get a master volume control as well as other options.
  *
  * This plugin is designed to work with and without plugins like YEP_OptionsCore,
  * OCRams audio plugins and FugsMultiTrackAudioEx.
@@ -22,6 +22,11 @@
  * - User master volume control (0-200%, saved in config)
  * - YEP_OptionsCore compatibility
  * - Option to show/hide user volume control
+ * - Option to hide stock BGM/BGS/SE volume controls
+ * - Customizable stock and master volume slider names
+ * - Option to set master volume position in options menu
+ * - Volume step size for fine adjustments with arrow keys and click.
+ * - Extensive debug logs.
  *
  * ============================================================================
  * Plugin Parameters
@@ -92,13 +97,13 @@
  * @max 200
  * @default 90
  *
- * @param Interface Settings
- * @text Interface Settings
+ * @param Option Menu Settings
+ * @text Option Menu Settings
  * @desc How the volume control appears in menus
  *
  * @param Option Position
- * @parent Interface Settings
- * @text Volume Option Position
+ * @parent Option Menu Settings
+ * @text Master Volume Option Position
  * @desc Position of the master volume option in the options menu
  * @type select
  * @option Top of All Options
@@ -109,27 +114,91 @@
  * @value BottomVolume
  * @default TopVolume
  *
+ * @param Hide Stock Volume
+ * @parent Option Menu Settings
+ * @text Hide Stock Volume Controls
+ * @desc Hide the default BGM/BGS/SE volume controls from options menu
+ * @type boolean
+ * @on Hide
+ * @off Show
+ * @default false
+ *
+ * @param Arrow volume step size
+ * @parent Option Menu Settings
+ * @text Arrow Key Volume Step Size
+ * @desc The increment/decrement step size for volume adjustments with arrow keys
+ * @type number
+ * @min 1
+ * @max 25
+ * @default 5
+ *
+ * @param Click volume step size
+ * @parent Option Menu Settings
+ * @text Click Volume Step Size
+ * @desc The increment/decrement step size for volume adjustments with mouse clicks
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 25
+ *
+ * @parent Option Menu Settings
+ * @text Volume Step Size
+ * @desc The increment/decrement step size for volume adjustments with arrow keys
+ * @type number
+ * @min 1
+ * @max 20
+ * @default 5
+ *
+ * @param Stock Volume Names
+ * @text Stock Volume Slider Names
+ * @desc Customize the names of stock volume sliders
+ *
+ * @param BGM Volume Name
+ * @parent Stock Volume Names
+ * @text BGM Volume Slider Name
+ * @desc Custom name for the BGM volume slider
+ * @type string
+ * @default BGM Volume
+ *
+ * @param BGS Volume Name
+ * @parent Stock Volume Names
+ * @text BGS Volume Slider Name
+ * @desc Custom name for the BGS volume slider
+ * @type string
+ * @default BGS Volume
+ *
+ * @param SE Volume Name
+ * @parent Stock Volume Names
+ * @text SE Volume Slider Name
+ * @desc Custom name for the SE volume slider
+ * @type string
+ * @default SE Volume
+ *
  */
 
 (() => {
-  "use strict";
-
   const pluginName = "FugsMasterVolume";
   const params = PluginManager.parameters(pluginName);
 
-  // Parse parameters with proper type conversion
+  // Load parameters or default values
   const debug = params["Debug Logs"] === "true";
   const devMasterVolume = Number(params["Dev Master Volume"]) || 70;
   const defaultUserVolume = Number(params["User Master Volume"]) || 90;
   const showUserVolume = params["Show User Volume"] === "true";
   const optionPosition = String(params["Option Position"]) || "TopVolume";
   const sliderName = String(params["Slider Name"]) || "Master Volume";
+  const hideStockVolume = params["Hide Stock Volume"] === "true";
+  const volumeStepSize = Number(params["Arrow volume step size"]) || 5;
+  const clickVolumeStepSize = Number(params["Click volume step size"]) || 25;
+  const bgmVolumeName = String(params["BGM Volume Name"]) || "BGM Volume";
+  const bgsVolumeName = String(params["BGS Volume Name"]) || "BGS Volume";
+  const seVolumeName = String(params["SE Volume Name"]) || "SE Volume";
 
   // Check for YEP_OptionsCore compatibility
   const hasYEPOptions = typeof Yanfly !== "undefined" && Yanfly.Options;
   const useConfigManager = !hasYEPOptions && showUserVolume;
 
-  // Debug logging function
+  // Debug function
   function debugLog(message, ...args) {
     if (debug) {
       console.log(`[${pluginName}] ${message}`, ...args);
@@ -147,15 +216,18 @@
       hasYEPOptions: hasYEPOptions,
       optionPosition: optionPosition,
       sliderName: sliderName,
+      hideStockVolume: hideStockVolume,
+      bgmVolumeName: bgmVolumeName,
+      bgsVolumeName: bgsVolumeName,
+      seVolumeName: seVolumeName,
     });
-    debugLog("WebAudio master volume:", WebAudio._masterVolume);
     debugLog(
-      "AudioManager master volume:",
-      AudioManager._masterVolume || "undefined"
+      "WebAudio master volume at initialization:",
+      WebAudio._masterVolume || "undefined"
     );
   }
 
-  // Set up ConfigManager property for user master volume
+  // Set up ConfigManager
   if (useConfigManager) {
     Object.defineProperty(ConfigManager, "userMasterVolume", {
       get: function () {
@@ -224,30 +296,53 @@
 
   // Options menu integration
   if (useConfigManager) {
-    // Override Window_Options.prototype.makeCommandList
     const _Window_Options_makeCommandList =
       Window_Options.prototype.makeCommandList;
     Window_Options.prototype.makeCommandList = function () {
-      switch (optionPosition) {
-        case "TopAll":
-          this.addCommand(sliderName, "userMasterVolume");
-          this.addGeneralOptions();
-          this.addVolumeOptions();
-          break;
-        case "TopVolume":
-          this.addGeneralOptions();
-          this.addCommand(sliderName, "userMasterVolume");
-          this.addVolumeOptions();
-          break;
-        case "BottomVolume":
-          this.addGeneralOptions();
-          this.addVolumeOptions();
-          this.addCommand(sliderName, "userMasterVolume");
-          break;
-        default:
-          _Window_Options_makeCommandList.call(this);
-          this.addCommand(sliderName, "userMasterVolume");
+      if (hideStockVolume) {
+        this.addGeneralOptions();
+
+        switch (optionPosition) {
+          case "TopAll":
+            this.addCommand(sliderName, "userMasterVolume");
+            break;
+          case "TopVolume":
+          case "BottomVolume":
+          default:
+            this.addCommand(sliderName, "userMasterVolume");
+            break;
+        }
+      } else {
+        switch (optionPosition) {
+          case "TopAll":
+            this.addCommand(sliderName, "userMasterVolume");
+            this.addGeneralOptions();
+            this.addVolumeOptions();
+            break;
+          case "TopVolume":
+            this.addGeneralOptions();
+            this.addCommand(sliderName, "userMasterVolume");
+            this.addVolumeOptions();
+            break;
+          case "BottomVolume":
+            this.addGeneralOptions();
+            this.addVolumeOptions();
+            this.addCommand(sliderName, "userMasterVolume");
+            break;
+          default:
+            _Window_Options_makeCommandList.call(this);
+            this.addCommand(sliderName, "userMasterVolume");
+        }
       }
+    };
+
+    // Override command names
+    const _Window_Options_addVolumeOptions =
+      Window_Options.prototype.addVolumeOptions;
+    Window_Options.prototype.addVolumeOptions = function () {
+      this.addCommand(bgmVolumeName, "bgmVolume");
+      this.addCommand(bgsVolumeName, "bgsVolume");
+      this.addCommand(seVolumeName, "seVolume");
     };
 
     // Override statusText to show volume percentage
@@ -265,11 +360,20 @@
       const symbol = this.commandSymbol(this.index());
       if (symbol === "userMasterVolume") {
         const currentValue = ConfigManager.userMasterVolume;
-        const presets = [0, 25, 50, 75, 100, 125, 150, 200];
+        const presets = (() => {
+          const step = clickVolumeStepSize;
+          const maxVolume = 200;
+          const presetValues = [];
+          for (let i = 0; i <= maxVolume; i += step) {
+            presetValues.push(i);
+          }
+          return presetValues;
+        })();
+        presets();
         const currentIndex = presets.indexOf(currentValue);
         const nextIndex = (currentIndex + 1) % presets.length;
 
-        ConfigManager.userMasterVolume = presets[nextIndex];
+        ConfigManager.userMasterVolume = presetValues[nextIndex];
         this.redrawCurrentItem();
         SoundManager.playCursor();
         return;
@@ -283,7 +387,7 @@
       const symbol = this.commandSymbol(this.index());
       if (symbol === "userMasterVolume") {
         ConfigManager.userMasterVolume = Math.min(
-          ConfigManager.userMasterVolume + 5,
+          ConfigManager.userMasterVolume + volumeStepSize,
           200
         );
         this.redrawCurrentItem();
@@ -299,7 +403,7 @@
       const symbol = this.commandSymbol(this.index());
       if (symbol === "userMasterVolume") {
         ConfigManager.userMasterVolume = Math.max(
-          ConfigManager.userMasterVolume - 5,
+          ConfigManager.userMasterVolume - volumeStepSize,
           0
         );
         this.redrawCurrentItem();
