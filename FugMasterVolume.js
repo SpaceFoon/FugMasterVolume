@@ -1,15 +1,15 @@
 /*:
- * @plugindesc Adds master volume settings for developers and players.
+ * @plugindesc v1.0 Adds master volume settings for developers and players.
  * @author Fug
  *
  * @param Debug Logs
  * @type boolean
- * @desc Log spam! (true/false)
+ * @desc So many logs it might slow your game down. (true/false)
  * @default false
  *
  * @param Dev Master Volume
  * @type number
- * @desc Default master volume setting (0-100%).
+ * @desc Default master volume setting (0-100%). This is permanently applied and not visible to the user.
  * Permanent master volume setting.
  * @default 70
  *
@@ -23,7 +23,7 @@
  * @text User Master Volume
  * @parent Show User Volume
  * @type number
- * @desc Default master volume (0-100%)
+ * @desc Default user master volume (0-100%)
  * Not used if user volume is off.
  * @default 90
  *
@@ -37,234 +37,223 @@
  *
  * @help
  * =====================================================================================
- * Introduction
+ * Fixed Master Volume Plugin v1.1
  * =====================================================================================
- * This plugin fixes the annoying problem of RPG Maker MV/MZ games starting at full-blast
- * --RIP-headphone-users volume. Developers can lock in a permanent default volume so
- * your game doesn’t scare the neighbors—or blast anyone out of their chair—on the first
- * launch. Players also get a master volume slider in the Options menu, just in case you
- * still got it wrong. And the user can even crank the volume above 100%!
- * =====================================================================================
- * Features
- * =====================================================================================
- * 1. **Developer Master Volume:**
- *    - Set a global, developer-defined volume level for new games.
- *    - Ensures a pleasant and controlled audio experience from first launch.
+ * This plugin fixes the annoying problem of RPG Maker MV games starting at a volume
+ * that blows out your ear drums. Developers can set a default volume and users get a
+ * master volume control.
+ * This plugin is designed to work with and without plugins like YEP_OptionsCore, OCRams
+ * audio plugins and FugsMultiTrackAudioEx.
  *
- * 2. **User Master Volume (Optional):**
- *    - Provides players with an adjustable master volume slider in the Options menu.
- *    - Settings persist across game sessions via ConfigManager.
- *    - Adjustable in 1% increments, can go to 900%
- *
+ * Features:
+ * - Developer-defined default volume (applied on first launch)
+ * - User master volume control (0-200%, saved in config)
+ * - Proper ConfigManager integration
+ * - YEP_OptionsCore compatibility
  * =====================================================================================
- * Compatibility
- * =====================================================================================
- * If Yanfly's Option Core plugin is enabled, this plugin automatically disables
- * the User Master Volume option to avoid conflicts. Developer volume settings
- * still apply for initial game launches.
- *
- * =====================================================================================
- * Instructions
- * =====================================================================================
- * 1. Configure the desired volume levels in the plugin parameters:
- *    - **Dev Master Volume**: Sets the global default volume.
- *    - **Show User Volume**: Enables or disables the user-adjustable volume slider.
- * 2. Use the **Option Position** parameter to decide where the Master Volume option appears.
- *
- * =====================================================================================
- * License
- * =====================================================================================
- * This plugin is distributed under the GNU General Public License v3.0 (GPLv3).
- * You may copy, distribute, and modify the plugin under the terms of the GPLv3.
- * See <https://www.gnu.org/licenses/gpl-3.0.en.html> for details.
- *
- * =====================================================================================
- * Terms of Use
- * =====================================================================================
- * - Free for commercial and non-commercial use.
- * - Attribution and a link is appreciated but not required.
  */
 
 (() => {
-  debugger;
-  const pluginName = "FugsMasterVolume";
-  const params = PluginManager.parameters(pluginName);
+  const params = PluginManager.parameters("FugsMasterVolume");
 
   const debug = params["Debug Logs"] === "true";
-  const devMasterVolume = Number(params["Dev Master Volume"]) || 100;
-  const userMasterVolume = Number(params["User Master Volume"]) || 100;
-  const useConfigManager = PluginManager._scripts.includes("YEP_OptionsCore")
-    ? false
-    : params["Show User Volume"] === "true";
+  const devMasterVolume = Number(params["Dev Master Volume"]) || 70;
+  const defaultUserVolume = Number(params["User Master Volume"]) || 90;
+  const showUserVolume = params["Show User Volume"] === "true";
   const optionPosition = String(params["Option Position"]);
 
-  if (debug) {
-    console.log("Developer Master Volume (default):", devMasterVolume + "%");
-    console.log("User Master Volume (default):", userMasterVolume + "%");
-    console.log("Use ConfigManager (persist user settings):", useConfigManager);
-    console.log("Master Volume Option Position:", optionPosition);
-  }
-  // get volume average
-  const finalMasterVolume = useConfigManager
-    ? (devMasterVolume * userMasterVolume) / 10000
-    : devMasterVolume / 100;
-  if (debug) {
-    console.log("Combined Master Volume", finalMasterVolume);
-  }
-
-  // WebAudio/Dev Volume
-  WebAudio.setMasterVolume(finalMasterVolume);
-  // ConfigManager.masterVolume = finalMasterVolume;
-
-  console.log(
-    "ConfigManager.masterVolume:",
-    ConfigManager.masterVolume,
-    finalMasterVolume
-  );
-  AudioManager._masterVolume = finalMasterVolume;
-  ConfigManager.masterVolume = finalMasterVolume;
-  //If YEP set the start volume from devMaster
-  if (PluginManager._scripts.includes("YEP_OptionsCore")) {
-    if (debug)
-      console.warn(
-        "YEP_OptionsCore detected! Not using Fugs Master Volume for User Volume control!"
-      );
-  }
-  // AudioManager.masterVolume = finalMasterVolume;
-  console.log(
-    "AudioManager.masterVolume ConfigManager ",
-    AudioManager._masterVolume,
-    ConfigManager.masterVolume
-  );
+  // Check for YEP_OptionsCore
+  const hasYEPOptions = typeof Yanfly !== "undefined" && Yanfly.Options;
+  const useConfigManager = !hasYEPOptions && showUserVolume;
 
   if (debug) {
-    console.log("AudioManager.masterVolume:", AudioManager._masterVolume);
-    console.log("WebAudio.masterVolume:", WebAudio._masterVolume);
-    console.log("ConfigManager.masterVolume:", ConfigManager.masterVolume);
+    console.log("[FugsMasterVolume] Debug Info:");
+    console.log("  Developer Master Volume:", devMasterVolume + "%");
+    console.log("  Default User Volume:", defaultUserVolume + "%");
+    console.log("  Show User Volume:", showUserVolume);
+    console.log("  Use ConfigManager:", useConfigManager);
+    console.log("  YEP Options detected:", hasYEPOptions);
+    console.log("  Option Position:", optionPosition);
+    console.log("Stock WebAudio master volume:", WebAudio._masterVolume);
+    console.log(
+      "Stock AudioManager master volume:",
+      AudioManager._masterVolume || "undefined"
+    );
   }
 
+  // Set up ConfigManager property for user master volume
   if (useConfigManager) {
-    if (debug)
-      console.log(
-        "ConfigManager integration enabled. User volume:",
-        userMasterVolume
-      );
-
     Object.defineProperty(ConfigManager, "userMasterVolume", {
-      get() {
-        return this._userMasterVolume;
+      get: function () {
+        return this._userMasterVolume || defaultUserVolume;
       },
-      set(value) {
-        this._userMasterVolume = value / 100;
+      set: function (value) {
+        this._userMasterVolume = Math.max(0, Math.min(200, value));
+        this.applyMasterVolume();
       },
       configurable: true,
     });
 
-    const originalMakeData = ConfigManager.makeData;
+    // Combine dev and user volumes
+    ConfigManager.applyMasterVolume = function () {
+      const devVolume = devMasterVolume / 100;
+      const userVolume = this.userMasterVolume / 100;
+      const finalVolume = devVolume * userVolume;
+
+      if (debug) {
+        console.log(
+          `[FugsMasterVolume] Applying volume: Dev(${devVolume}) * User(${userVolume}) = ${finalVolume}`
+        );
+      }
+
+      WebAudio.setMasterVolume(finalVolume);
+    };
+
+    // Override ConfigManager.makeData to save userMasterVolume
+    const _ConfigManager_makeData = ConfigManager.makeData;
     ConfigManager.makeData = function () {
-      const config = originalMakeData.call(this);
-      this.masterVolume = finalMasterVolume;
+      const config = _ConfigManager_makeData.call(this);
+      config.userMasterVolume = this.userMasterVolume;
       return config;
     };
 
-    const originalApplyData = ConfigManager.applyData;
+    // Override ConfigManager.applyData to load userMasterVolume
+    const _ConfigManager_applyData = ConfigManager.applyData;
     ConfigManager.applyData = function (config) {
-      originalApplyData.call(this, config);
-      this.masterVolume = finalMasterVolume;
+      _ConfigManager_applyData.call(this, config);
+      this.userMasterVolume = this.readValue(
+        config,
+        "userMasterVolume",
+        defaultUserVolume
+      );
+    };
+
+    // Override ConfigManager.readValue to handle our custom property
+    const _ConfigManager_readValue = ConfigManager.readValue;
+    ConfigManager.readValue = function (config, name, defaultValue) {
+      if (name === "userMasterVolume") {
+        const value = config[name];
+        return value !== undefined ? value : defaultValue;
+      }
+      return _ConfigManager_readValue.call(this, config, name, defaultValue);
+    };
+  } else {
+    // Just apply dev volume directly
+    const devVolume = devMasterVolume / 100;
+    if (debug) {
+      console.log(`[FugsMasterVolume] Applying dev volume only: ${devVolume}`);
+    }
+    WebAudio.setMasterVolume(devVolume);
+  }
+
+  // Options menu integration (only if ConfigManager is being used)
+  if (useConfigManager) {
+    // Override Window_Options.prototype.makeCommandList
+    const _Window_Options_makeCommandList =
+      Window_Options.prototype.makeCommandList;
+    Window_Options.prototype.makeCommandList = function () {
+      switch (optionPosition) {
+        case "TopAll":
+          this.addCommand("Master Volume", "userMasterVolume");
+          this.addGeneralOptions();
+          this.addVolumeOptions();
+          break;
+        case "TopVolume":
+          this.addGeneralOptions();
+          this.addCommand("Master Volume", "userMasterVolume");
+          this.addVolumeOptions();
+          break;
+        case "BottomVolume":
+          this.addGeneralOptions();
+          this.addVolumeOptions();
+          this.addCommand("Master Volume", "userMasterVolume");
+          break;
+        default:
+          _Window_Options_makeCommandList.call(this);
+          this.addCommand("Master Volume", "userMasterVolume");
+      }
+    };
+
+    // Override statusText to show the volume percentage
+    const _Window_Options_statusText = Window_Options.prototype.statusText;
+    Window_Options.prototype.statusText = function (symbol) {
+      if (symbol === "userMasterVolume") {
+        return ConfigManager.userMasterVolume + "%";
+      }
+      return _Window_Options_statusText.call(this, symbol);
+    };
+
+    // Override processOk for clicking on the option
+    const _Window_Options_processOk = Window_Options.prototype.processOk;
+    Window_Options.prototype.processOk = function () {
+      const symbol = this.commandSymbol(this.index());
+      if (symbol === "userMasterVolume") {
+        const currentValue = ConfigManager.userMasterVolume;
+        // Cycle through preset values: 0, 25, 50, 75, 100, 125, 150, 200
+        const presets = [0, 25, 50, 75, 100, 125, 150, 200];
+        const currentIndex = presets.indexOf(currentValue);
+        const nextIndex = (currentIndex + 1) % presets.length;
+        ConfigManager.userMasterVolume = presets[nextIndex];
+        this.redrawCurrentItem();
+        SoundManager.playCursor();
+        return;
+      }
+      _Window_Options_processOk.call(this);
+    };
+
+    // Override cursorRight for fine control
+    const _Window_Options_cursorRight = Window_Options.prototype.cursorRight;
+    Window_Options.prototype.cursorRight = function (wrap) {
+      const symbol = this.commandSymbol(this.index());
+      if (symbol === "userMasterVolume") {
+        ConfigManager.userMasterVolume = Math.min(
+          ConfigManager.userMasterVolume + 5,
+          200
+        );
+        this.redrawCurrentItem();
+        SoundManager.playCursor();
+        return;
+      }
+      _Window_Options_cursorRight.call(this, wrap);
+    };
+
+    // Override cursorLeft for fine control
+    const _Window_Options_cursorLeft = Window_Options.prototype.cursorLeft;
+    Window_Options.prototype.cursorLeft = function (wrap) {
+      const symbol = this.commandSymbol(this.index());
+      if (symbol === "userMasterVolume") {
+        ConfigManager.userMasterVolume = Math.max(
+          ConfigManager.userMasterVolume - 5,
+          0
+        );
+        this.redrawCurrentItem();
+        SoundManager.playCursor();
+        return;
+      }
+      _Window_Options_cursorLeft.call(this, wrap);
     };
   }
-  // const isPlaytest = Utils.isOptionValid("test");
-  // if (isPlaytest === 1)
 
-  // Add master volume option in the Options menu
-  const addOption = function () {
-    console.log("-------------Option added");
-    this.addCommand("User Master Volume", "userMasterVolume");
-  };
-  // option menu
-  const _statusText = Window_Options.prototype.statusText;
-  Window_Options.prototype.statusText = function (symbol) {
-    if (symbol === "userMasterVolume") {
-      return `${ConfigManager.userMasterVolume}%`;
-    }
-    return _statusText.call(this, symbol);
-  };
-
-  const _processOk = Window_Options.prototype.processOk;
-  Window_Options.prototype.processOk = function () {
-    const symbol = this.commandSymbol(this.index());
-    if (symbol === "userMasterVolume") {
-      const currentValue = ConfigManager.userMasterVolume;
-      ConfigManager.userMasterVolume =
-        currentValue === 900 ? 0 : currentValue + 5;
-      WebAudio.setMasterVolume(ConfigManager.userMasterVolume / 100);
-      this.redrawCurrentItem();
-      return;
-    }
-    _processOk.call(this);
-  };
-
-  const _cursorRight = Window_Options.prototype.cursorRight;
-  Window_Options.prototype.cursorRight = function (wrap) {
-    const symbol = this.commandSymbol(this.index());
-    if (symbol === "userMasterVolume") {
-      ConfigManager.userMasterVolume = Math.min(
-        ConfigManager.userMasterVolume + 1,
-        900
+  // Apply initial volume on plugin load
+  if (useConfigManager) {
+    // Will be applied when ConfigManager loads
+    if (debug) {
+      console.log(
+        "[FugsMasterVolume] ConfigManager will handle initial volume application"
       );
-      WebAudio.setMasterVolume(ConfigManager.userMasterVolume / 100); // Apply volume in real-time
-      this.redrawCurrentItem();
-      return;
     }
-    _cursorRight.call(this, wrap);
-  };
+  } else {
+    // Apply dev volume immediately
+    setTimeout(() => {
+      const devVolume = devMasterVolume / 100;
+      WebAudio.setMasterVolume(devVolume);
+      if (debug) {
+        console.log(`[FugsMasterVolume] Initial volume applied: ${devVolume}`);
+      }
+    }, 100);
+  }
 
-  const _cursorLeft = Window_Options.prototype.cursorLeft;
-  Window_Options.prototype.cursorLeft = function (wrap) {
-    const symbol = this.commandSymbol(this.index());
-    if (symbol === "userMasterVolume") {
-      ConfigManager.userMasterVolume = userMasterVolume;
-      WebAudio.setMasterVolume(finalMasterVolume); // Apply volume in real-time
-      this.redrawCurrentItem();
-      return;
-    }
-    _cursorLeft.call(this, wrap);
-  };
-  const originalMakeCommandList = Window_Options.prototype.makeCommandList;
-  Window_Options.prototype.makeCommandList = function () {
-    if (!useConfigManager) {
-      console.log("Not adding to list");
-
-      return originalMakeCommandList.call(this);
-    }
-
-    if (optionPosition === "Bottom") {
-      this.addGeneralOptions();
-      this.addVolumeOptions();
-      addOption.call(this);
-    } else if (optionPosition === "TopAll") {
-      console.log("TopAll");
-      addOption.call(this);
-      this.addGeneralOptions();
-      this.addVolumeOptions();
-    } else if (optionPosition === "TopVolume") {
-      this.addGeneralOptions();
-      addOption.call(this);
-      this.addVolumeOptions();
-    } else if (optionPosition === "BottomVolume") {
-      this.addGeneralOptions();
-      this.addVolumeOptions();
-      addOption.call(this);
-    } else {
-      console.log("didn't trigger");
-
-      originalMakeCommandList.call(this);
-    }
-  };
-
-  console.log(
-    "Final Applied Volume: ",
-    AudioManager.masterVolume,
-    WebAudio._masterVolume
-  );
+  if (debug) {
+    console.log("[FugsMasterVolume] Plugin initialization complete");
+  }
 })();
