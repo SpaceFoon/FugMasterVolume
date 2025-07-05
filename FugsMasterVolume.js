@@ -177,7 +177,7 @@
   // Parse parameters
   const debug = params["Debug Logs"] === "true";
   const devMasterVolume = Number(params["Dev Master Volume"]) || 70;
-
+  const showUserVolume = params["Show User Volume"] === "true";
   const defaultUserVolume = Number(params["User Master Volume"]) || 90;
   const sliderName = String(params["Slider Name"]) || "Master Volume";
   const optionPosition = String(params["Option Position"]) || "TopVolume";
@@ -191,11 +191,10 @@
 
   // Check for YEP Options and disable user controls if present
   const hasYEPOptions = typeof Yanfly !== "undefined" && Yanfly.Options;
-  const showUserVolume =
-    params["Show User Volume"] === "true" && !hasYEPOptions;
-
-  // Set useConfigManager based on showUserVolume
-  const useConfigManager = showUserVolume;
+  if (hasYEPOptions) {
+    console.error("YEP Options detected. FugsMasterVolume will be disabled.");
+    return;
+  }
 
   // Debug function
   function debugLog(message, ...args) {
