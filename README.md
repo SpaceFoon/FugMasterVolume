@@ -2,7 +2,7 @@
 
 **Author:** Fug  
 **Version:** 1.0  
-**Targets:** RPG Maker MV & MZ  
+**Targets:** RPG Maker MV
 **Plugin Filename:** `FugsMasterVolume.js`  
 **URL:** [itch.io/](https://itch.io/profile/spacefoon)
 
@@ -42,7 +42,7 @@ and controlling how volume sliders behave.
 
 ## 🔌 Compatibility
 
-- ✅ Works with RPG Maker **MV 1.5+** and **MZ**
+- ✅ Works with RPG Maker **MV 1.5+**
 
 - ✅ Compatible with:
   - **YEP_OptionsCore works with dev volume only.**

@@ -1,5 +1,5 @@
 /*:
- * @target MV MZ
+ * @target MV
  * @plugindesc [v1.0] Master Volume Plugin
  * @author Fug
  * @version 1.0
