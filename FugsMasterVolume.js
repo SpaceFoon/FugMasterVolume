@@ -1,5 +1,5 @@
 /*:
- * @target MV
+ * @target MV MZ
  * @plugindesc [v1.0] Master Volume Plugin
  * @author Fug
  * @version 1.0
@@ -13,6 +13,15 @@
  * This plugin fixes the annoying problem of RPG Maker games starting at a
  * volume that blows out your ear drums. Developers can set a default volume
  * and users get a master volume control.
+ *
+ * === Console Testing Helper ===
+ * A small helper is exposed for quick runtime testing:
+ *   - `FugsMasterVolumeTest.setDev(percent)`   // set developer volume 0-100
+ *   - `FugsMasterVolumeTest.setUser(percent)`  // set user volume 0-200 (persists if slider active)
+ *   - `FugsMasterVolumeTest.setBoth(dev, user)`
+ *   - `FugsMasterVolumeTest.bumpUser(delta)`   // nudge user volume
+ *   - `FugsMasterVolumeTest.get()` / `.log()`  // inspect current dev/user/final
+ * These call the same code paths as the options slider (when enabled) so you can audition levels live.
  *
  * ============================================================================
  * Plugin Parameters
@@ -158,11 +167,11 @@
 
   // Parse parameters
   const debug = params["Debug Logs"] === "true";
-  const devMasterVolume = Number(params["Dev Master Volume"]) || 70;
+  let devMasterVolume = Number(params["Dev Master Volume"]) || 70; //let for console testing
   const showUserVolume = params["Show User Volume"] === "true";
   const defaultUserVolume = Number(params["User Master Volume"]) || 90;
   const sliderName = String(params["Slider Name"]) || "Master Volume";
-  const optionPosition = String(params["Option Position"]) || "TopVolume";
+  // const optionPosition = String(params["Option Position"]) || "TopVolume";
   const hideStockVolume = params["Hide Stock Volume"] === "true";
   const volumeStepSize = Number(params["Arrow volume step size"]) || 5;
   const clickVolumeStepSize = Number(params["Click volume step size"]) || 25;
@@ -173,6 +182,20 @@
 
   // Check for YEP Options and disable user controls if present
   const hasYEPOptions = typeof Yanfly !== "undefined" && Yanfly.Options;
+
+  function getUserVolumeMultiplier() {
+    if (!showUserVolume) return 1;
+
+    if (hasYEPOptions) {
+      const yepMasterVolume = Number(ConfigManager.masterVolume);
+      const safeYepMasterVolume = Number.isFinite(yepMasterVolume) ? yepMasterVolume : 100;
+      return Math.max(0, Math.min(100, safeYepMasterVolume)) / 100;
+    }
+
+    const localUserVolume = Number(ConfigManager.userMasterVolume);
+    const safeLocalUserVolume = Number.isFinite(localUserVolume) ? localUserVolume : defaultUserVolume;
+    return Math.max(0, Math.min(200, safeLocalUserVolume)) / 100;
+  }
 
   // Debug function
   function debugLog(message, ...args) {
@@ -187,10 +210,10 @@
     debugLog("Configuration:", {
       devMasterVolume: devMasterVolume + "%",
       showUserVolume: showUserVolume,
-      // hasYEPOptions: hasYEPOptions,
+      hasYEPOptions: hasYEPOptions,
       defaultUserVolume: defaultUserVolume + "%",
       sliderName: sliderName,
-      optionPosition: optionPosition,
+      // optionPosition: optionPosition,
       hideStockVolume: hideStockVolume,
       volumeStepSize: volumeStepSize,
       clickVolumeStepSize: clickVolumeStepSize,
@@ -199,10 +222,7 @@
       seVolumeName: seVolumeName,
       meVolumeName: meVolumeName,
     });
-    debugLog(
-      "WebAudio master volume at initialization:",
-      WebAudio._masterVolume || "undefined"
-    );
+    debugLog("WebAudio master volume at initialization:", WebAudio._masterVolume || "undefined");
   }
 
   // Set up ConfigManager for user volume control
@@ -221,7 +241,7 @@
     // Apply combined developer and user volumes
     ConfigManager.applyMasterVolume = function () {
       const devVolume = devMasterVolume / 100;
-      const userVolume = !hasYEPOptions ? this.userMasterVolume / 100 : 1;
+      const userVolume = getUserVolumeMultiplier();
       const finalVolume = devVolume * userVolume;
 
       debugLog(
@@ -253,11 +273,7 @@
     const _ConfigManager_applyData = ConfigManager.applyData;
     ConfigManager.applyData = function (config) {
       _ConfigManager_applyData.call(this, config);
-      this.userMasterVolume = this.readValue(
-        config,
-        "userMasterVolume",
-        defaultUserVolume
-      );
+      this.userMasterVolume = this.readValue(config, "userMasterVolume", defaultUserVolume);
     };
 
     const _ConfigManager_readValue = ConfigManager.readValue;
@@ -269,10 +285,32 @@
       return _ConfigManager_readValue.call(this, config, name, defaultValue);
     };
 
+    // If YEP Options manages masterVolume, re-apply developer scaling whenever
+    // the YEP master slider changes so both controls combine correctly.
+    if (hasYEPOptions) {
+      const masterVolumeDescriptor = Object.getOwnPropertyDescriptor(ConfigManager, "masterVolume");
+      if (masterVolumeDescriptor && typeof masterVolumeDescriptor.set === "function") {
+        const originalMasterGetter = masterVolumeDescriptor.get;
+        const originalMasterSetter = masterVolumeDescriptor.set;
+
+        Object.defineProperty(ConfigManager, "masterVolume", {
+          get: function () {
+            return originalMasterGetter
+              ? originalMasterGetter.call(this)
+              : this._masterVolume;
+          },
+          set: function (value) {
+            originalMasterSetter.call(this, value);
+            this.applyMasterVolume();
+          },
+          configurable: true,
+        });
+      }
+    }
+
     // Override necessary for name changes
     Window_Options.prototype.addVolumeOptions = function () {
-      if (showUserVolume && !hasYEPOptions)
-        this.addCommand(sliderName, "userMasterVolume");
+      if (showUserVolume && !hasYEPOptions) this.addCommand(sliderName, "userMasterVolume");
       if (!hideStockVolume && !hasYEPOptions) {
         this.addCommand(bgmVolumeName, "bgmVolume");
         this.addCommand(bgsVolumeName, "bgsVolume");
@@ -348,7 +386,7 @@
   function initDevVolume() {
     try {
       if (WebAudio && WebAudio.setMasterVolume) {
-        if (showUserVolume && !hasYEPOptions) {
+        if (showUserVolume && ConfigManager.applyMasterVolume) {
           ConfigManager.applyMasterVolume();
         } else {
           const devVolume = devMasterVolume / 100;
@@ -363,6 +401,95 @@
     }
     setTimeout(initDevVolume, 100);
   }
+
+  // Console helper for quick testing: FugsMasterVolumeTest.set(50), .bump(10), .get(), .log()
+  function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, Number(val)));
+  }
+
+  function applyUserVolume(percent) {
+    const clampedUser = clamp(percent, 0, 200);
+
+    // If YEP Options controls master volume, route test helper through it.
+    if (showUserVolume && hasYEPOptions && ConfigManager.applyMasterVolume) {
+      ConfigManager.masterVolume = Math.max(0, Math.min(100, clampedUser));
+      return {
+        dev: devMasterVolume,
+        user: Number(ConfigManager.masterVolume),
+        final: WebAudio._masterVolume,
+      };
+    }
+
+    // If plugin slider exists, reuse the normal path so it persists in ConfigManager.
+    if (showUserVolume && !hasYEPOptions && ConfigManager.applyMasterVolume) {
+      ConfigManager.userMasterVolume = clampedUser;
+      return { dev: devMasterVolume, user: clampedUser, final: WebAudio._masterVolume };
+    }
+
+    // Otherwise, compute combined volume manually and set master
+    const devVolume = devMasterVolume / 100;
+    const userVolume = clampedUser / 100;
+    const finalVolume = devVolume * userVolume;
+    if (WebAudio && WebAudio.setMasterVolume) {
+      WebAudio.setMasterVolume(finalVolume);
+    }
+    return { dev: devMasterVolume, user: clampedUser, final: finalVolume };
+  }
+
+  function applyDevVolume(percent) {
+    devMasterVolume = clamp(percent, 0, 100);
+
+    // Reapply using current user setting if available.
+    if (showUserVolume && ConfigManager.applyMasterVolume) {
+      ConfigManager.applyMasterVolume();
+      return {
+        dev: devMasterVolume,
+        user: getUserVolumeMultiplier() * 100,
+        final: WebAudio._masterVolume,
+      };
+    }
+
+    const devVolume = devMasterVolume / 100;
+    const userVolume = getUserVolumeMultiplier();
+    const finalVolume = devVolume * userVolume;
+    if (WebAudio && WebAudio.setMasterVolume) {
+      WebAudio.setMasterVolume(finalVolume);
+    }
+    return { dev: devMasterVolume, user: userVolume * 100, final: finalVolume };
+  }
+
+  window.FugsMasterVolumeTest = {
+    setUser(percent) {
+      const res = applyUserVolume(percent);
+      debugLog(`Test user set → dev:${res.dev}% user:${res.user}% final:${res.final}`);
+      return res;
+    },
+    setDev(percent) {
+      const res = applyDevVolume(percent);
+      debugLog(`Test dev set → dev:${res.dev}% user:${res.user}% final:${res.final}`);
+      return res;
+    },
+    setBoth(devPercent, userPercent) {
+      applyDevVolume(devPercent);
+      return this.setUser(userPercent);
+    },
+    bumpUser(delta) {
+      const current = showUserVolume && !hasYEPOptions ? ConfigManager.userMasterVolume : 100;
+      return this.setUser(current + Number(delta || 0));
+    },
+    get() {
+      return {
+        dev: devMasterVolume,
+        user: showUserVolume && !hasYEPOptions ? ConfigManager.userMasterVolume : null,
+        final: WebAudio ? WebAudio._masterVolume : null,
+      };
+    },
+    log() {
+      const res = this.get();
+      console.log(`[FugsMasterVolumeTest] dev:${res.dev}% user:${res.user}% final:${res.final}`);
+      return res;
+    },
+  };
 
   initDevVolume();
 })();
