@@ -1,13 +1,13 @@
 /*:
  * @target MV MZ
- * @plugindesc [v1.0] Master Volume Plugin
+ * @plugindesc [v1.0.0] Master Volume Plugin
  * @author Fug
- * @version 1.0
+ * @version 1.0.0
  * @url https://itch.io/profile/spacefoon
  * @help FugsMasterVolume.js
  *
  * ============================================================================
- * Master Volume Plugin v1.0
+ * Master Volume Plugin v1.0.0
  * ============================================================================
  *
  * This plugin fixes the annoying problem of RPG Maker games starting at a
@@ -41,7 +41,7 @@
  * Terms of Use
  * ============================================================================
  *
- * Free for commercial and non-commercial use.
+ * See the repository LICENSE for GNU GPL-3.0 terms governing use, modification, and redistribution.
  *
  * ============================================================================
  *
