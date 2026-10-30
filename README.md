@@ -1,70 +1,43 @@
-# 📦 Master Volume Plugin v1.0
+# Fugs Master Volume
 
-**Author:** Fug  
-**Version:** 1.0  
-**Targets:** RPG Maker MV
-**Plugin Filename:** `FugsMasterVolume.js`  
-**URL:** [itch.io/](https://itch.io/profile/spacefoon)
+Set a developer-defined starting volume and give players a saved master-volume slider in RPG Maker's Options menu.
 
----
+| | |
+|---|---|
+| **Version** | 1.0.0 |
+| **Engines** | RPG Maker MV 1.5+ and MZ |
+| **Plugin file** | `FugsMasterVolume.js` |
+| **License** | GNU GPL-3.0 ([LICENSE](LICENSE)) |
 
-This plugin solves the problem of RPG Maker games launching at a volume that blows out your ear drums.
-It allows developers to enforce a fixed master volume and gives players a custom master volume control in the Options menu.
+## Download
 
-Optional settings allow hiding default volume sliders, customizing labels,  
-and controlling how volume sliders behave.
+- [GitHub Releases](https://github.com/SpaceFoon/FugMasterVolume/releases) — versioned install ZIPs will appear here.
+- [Plugin source](https://github.com/SpaceFoon/FugMasterVolume/blob/main/FugsMasterVolume.js)
+- [Repository](https://github.com/SpaceFoon/FugMasterVolume)
+- [Itch.io profile](https://itch.io/profile/spacefoon)
 
----
+## Features
 
-## 🔧 Features
+- Apply a developer-defined starting master volume.
+- Add a saved player master-volume control from 0–200%.
+- Optionally hide RPG Maker's stock BGM, BGS, SE, and ME sliders.
+- Customize slider names and keyboard/mouse step sizes.
+- Use the included `FugsMasterVolumeTest` console helpers during development.
 
-- Developer-defined default master volume (applied once at game start)
-- User master volume control (0–200%, saved in config)
-- Option to hide stock BGM/BGS/SE/ME sliders
-- Custom slider names (master + stock)
-- Adjustable step sizes for arrow keys and mouse clicks
-- Extensive debug logging
+## Install
 
----
+1. Copy `FugsMasterVolume.js` into your game's `js/plugins/` folder.
+2. Enable **FugsMasterVolume** in Plugin Manager.
+3. Configure the developer volume and player Options settings.
+4. Test the Options menu and all audio paths used by your game.
 
-## 🚀 Installation Instructions
+## Compatibility
 
-1. Place `FugsMasterVolume.js` in your project’s `js/plugins/` folder.
-2. Open **Plugin Manager** in RPG Maker.
-3. Click **“Add Plugin”**, select `FugsMasterVolume`, and **turn it ON**.
-4. Configure parameters or leave default:
-   - Set developer volume (`Dev Master Volume`)
-   - Enable/disable user control
-   - Customize appearance and behavior
-5. Test in-game: Master volume should apply globally to all sound output.
+- RPG Maker MV 1.5+ and MZ.
+- YEP_OptionsCore works with the developer volume setting only.
+- For OcRams audio mods, load this plugin before those mods.
+- Other plugins that replace the Options menu may require a different plugin order.
 
----
+## License
 
-## 🔌 Compatibility
-
-- ✅ Works with RPG Maker **MV 1.5+**
-
-- ✅ Compatible with:
-  - **YEP_OptionsCore works with dev volume only.**
-  - OCRams audio mods when placed BEFORE them in the plugin list.
-  - FugsMultiTrackAudioEx
-- ⚠️ Other plugins that **override the Options menu** may interfere and require manual plugin order adjustment.
-- ✅ Minimal side effects: The plugin avoids overriding global audio systems like `AudioManager`, and only interacts with `WebAudio.setMasterVolume()` when needed.
-
----
-
-## 📜 License
-
-This plugin is **free for commercial and non-commercial use**.
-
-- Attribution appreciated but not required.
-- Modification and redistribution allowed (credit encouraged).
-- Do not sell the plugin by itself.
-
----
-
-## 🧩 Need Help?
-
-Post issues or ideas on [my itch.io profile](https://itch.io/profile/spacefoon), or open a discussion wherever this plugin is hosted.
-
----
+GNU GPL-3.0. Commercial and non-commercial use are permitted under the license terms; see [LICENSE](LICENSE) for redistribution and modification conditions.
